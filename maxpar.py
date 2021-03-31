@@ -1,5 +1,7 @@
 from graphviz import Digraph
-from threading import Event
+from threading import Event, Thread
+from time import sleep
+from random import randint
 
 """
 — construction du système de parallélisme maximal : 7 points,
@@ -67,7 +69,19 @@ class TaskSystem:
         prec = list(ensemble)
         return prec
 
-    # TODO : TaskSystem.run
+    # TODO : TaskSystem.run + tests
+
+    def taskRun(sommet):
+        # ecoute tous les events des taches qui le precedent directement
+        for e in sommet.events:
+            e.wait()
+        #sleep(randint(1,10))
+        # toutes les taches qui le precedent ont termine, il peut s'executer
+        sommet.task.run()
+        #print(sommet.task.name)
+        # declenhe son event s'il y en a, càd s'il precede d'autres taches
+        if sommet.event:
+            sommet.event.set()
 
     def run(self):
         """exécute les tâches du système en parallélisant celles qui peuvent être
@@ -76,15 +90,11 @@ class TaskSystem:
         for s in self.graph.values():
             if len(s.sortants): # cette tache precede d'autres taches
                 s.event = Event() # on lui attribue un event
-                print(s.sortants)
-                for s_fils in s.sortants:
+                for s_fils in s.sortants: # toutes les taches qui sont directement precedees par cette tache, ecouteront cet event
                     s_fils.events.append(s.event)
-
-    """
-     si deux tâches sont interférentes, il n’est pas possible
-     de savoir en utilisant ces conditions dans quel ordre ces tâches doivent être exécutées : en
-     effet, l’ordre dépendra des préférences de l’utilisateur ou de l’utilisatrice.
-    """
+        # on lance toutes les taches en parallele, les precedences sont verifies par les events
+        for s in self.graph.values():
+            Thread(target=TaskSystem.taskRun, args=[s]).start()
 
     # ==========================================================================================================
     class Sommet:
@@ -96,13 +106,16 @@ class TaskSystem:
             entrants : soit ce sommet u, entrants = t tq (t,u) existe càd sommets qui on une fleche vers ce sommet
             sortants : voisinage de ce sommet, sortants = v tq (u,v) existe
             sommets_accessibles : les sommets accessibles depuis ce sommet
+            events : les evnts qu'il faut attendre pour commencer la tache
         """
 
+        # TODO: changer sommets_accessibles par une recherche en profondeur
         def __init__(self, task):
             self.task = task
             self.entrants = []
             self.sortants = []
             self.sommets_accessibles = []
+            self.event = None
             self.events = []
 
         def accessibleUpdate(self, sommet):
@@ -154,11 +167,20 @@ class TaskSystem:
                 sommetU.accessibleUpdate(sommetV)
             return True
 
+    # TODO : ajouter param type qui donne le type de erreur, cyle explicite, cycle implicite, pas de preference communiquee(pas de transitivite)
     def messageErreurPrecedence(t1, t2):
         raise Exception(
             "Impossible d'établir une relation de précédence entre %s et %s. Veuillez vérifier vos préférences de précédence." % (t1.name, t2.name))
 
+
+    """
+    si deux tâches sont interférentes, il n’est pas possible
+    de savoir en utilisant ces conditions dans quel ordre ces tâches doivent être exécutées : en
+    effet, l’ordre dépendra des préférences de l’utilisateur ou de l’utilisatrice.
+    """
     def makeGraph(self):
+        """construit le graph de precedence du systeme de parallelisme maximal
+        """
         self.initGraph()
         interferences = self.getInterferences()
         aTraiter = []
@@ -182,8 +204,8 @@ class TaskSystem:
                 # on garde les taches à part
                 aTraiter.append(e)
         for a in aTraiter:
-            t1 = e[0]
-            t2 = e[1]
+            t1 = a[0]
+            t2 = a[1]
             if not self.ajout(t1, t2):  # si on ne peut pas ajouter (t1,t2)
                 # peut on ajouter (t2,t1)?
                 # si non alors on ne dispose pas de preferences suffisantes pour creer le systeme
@@ -248,7 +270,7 @@ class TaskSystem:
     """
 
 
-"""
+
 X = None
 Y = None
 Z = None
@@ -256,17 +278,21 @@ Z = None
 
 def runT1():
     global X
+    print("running t1")
     X = 1
 
 
 def runT2():
     global Y
-    X = 2
+    print("running t2")
+    Y = 2
 
 
 def runTsomme():
     global X, Y, Z
+    print("running tsomme")
     Z = X+Y
+    print(Z)
 
 
 t1 = Task("T1", [], ["X"], runT1)
@@ -274,10 +300,10 @@ t2 = Task("T2", [], ["Y"], runT2)
 tsomme = Task("Tsomme", ["Y", "X"], ["Z"], runTsomme)
 tasksystem = TaskSystem([t1, t2, tsomme], {"T1": [], "T2": [
                         "T1"], "Tsomme": ["T1", "T2"]})
-print(tasksystem.getDependencies("Tsomme"))
 tasksystem.draw()
-"""
+tasksystem.run()
 
+"""
 t1 = Task("T1", [], ["X1", "X2"], None)
 t2 = Task("T2", [], ["Y1", "Y2"], None)
 t3 = Task("T3", ["X2", "Y2"], [], None)
@@ -290,7 +316,6 @@ tasksystem = TaskSystem([t1, t2, t3, t4, t5, t6],
 #print(tasksystem.getDependencies("T4"))
 tasksystem.draw()
 tasksystem.run()
-"""
 t1 = Task("T1", [], ["X", "Y"], None)
 t2 = Task("T2", ["X"], ["Z"], None)
 t3 = Task("T3", ["X", "Z"], [], None)
