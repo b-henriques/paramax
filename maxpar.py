@@ -1,3 +1,6 @@
+from graphviz import Digraph
+
+
 
 """
 — construction du système de parallélisme maximal : 7 points,
@@ -47,56 +50,141 @@ class TaskSystem:
     def __init__(self, tasks, dic):
         self.tasks = tasks
         self.dic = dic
+        self.makeGraph()
+        
 
     # TODO : TaskSystem.getDependencies
-    def getDependencies(taskName):
+    def getDependencies(self, taskName):
         """renvoie la liste des noms des tâches qui doivent s’exécuter avant taskName
         """
-        pass
+        # s = sommet dont la tache est taskName
+        s = self.graph[taskName]
+        # on cherche tous les sommets qui le precedent
+        prec = []
+        prec = s.getDependenciesRec(prec)
+        # on elimine les doublons
+        ensemble = set()
+        for p in prec:
+            ensemble.add(p.task.name)
+        # on transorme le set en liste
+        prec = list(ensemble)
+        return prec
 
     # TODO : TaskSystem.run
+
     def run(self):
         """exécute les tâches du système en parallélisant celles qui peuvent être
         parallélisées
         """
         pass
 
-    # TODO : identificaion des tâche interferentes et relation de precedence
     """
      si deux tâches sont interférentes, il n’est pas possible
      de savoir en utilisant ces conditions dans quel ordre ces tâches doivent être exécutées : en
      effet, l’ordre dépendra des préférences de l’utilisateur ou de l’utilisatrice.
     """
 
-    def makePrecedence(self):
-        interferences = self.getInterferences
-        precedences = {}
+    # ==========================================================================================================
+    class Sommet:
+        """classe Sommet
+        ---------------
+        ---Attributs---
+        ---------------
+            task_name : nom de la tache qu'il represente
+            entrants : soit ce sommet u, entrants = t tq (t,u) existe càd sommets qui on une fleche vers ce sommet
+            sortants : voisinage de ce sommet, sortants = v tq (u,v) existe
+            sommets_accessibles : les sommets accessibles depuis ce sommet
+        """
+
+        def __init__(self, task):
+            self.task = task
+            self.entrants = []
+            self.sortants = []
+            self.sommets_accessibles = []
+
+        def accessibleUpdate(self, sommet):
+            """actualise sommet_accessibles lors d'un ajout d'une arete au graph 
+            """
+            self.sommets_accessibles.append(sommet)
+            if not self.entrants:
+                for s in self.entrants:
+                    s.accessibleUpdate(sommet)
+
+        def getDependenciesRec(self, prec):
+            """renvoi tous les sommets qui precedent sommet
+            """
+            prec.extend(self.entrants)
+            for s in self.entrants:
+                prec.extend(s.getDependenciesRec(prec))
+            return prec
+
+    # =============================================================================================================
+
+    def initGraph(self):
+        """initialise le graph
+
+        1 sommet = 1 tache
+        """
+        self.graph = {}
+        for t in self.tasks:
+            self.graph[t.name] = TaskSystem.Sommet(t)
+
+    def ajout(self, t1, t2):
+        """on ajoute l'arete (t1,t2) au graph si cela ne crée pas de cycle, ou si on n'a pas encore cette precedence par transitivité
+        """
+        sommetU = self.graph[t1.name]
+        sommetV = self.graph[t2.name]
+        # chemin de v à u ?
+        # oui => ajout de (u,v) cree un cycle donc erreur
+        if sommetU in sommetV.sommets_accessibles:
+            return False
+        else:  # non => chemin u à v?
+            # si chemin alors on a déjà la précédence par transitivité
+            # sinon:
+            if sommetV not in sommetU.sommets_accessibles:
+                # ajout u -> v
+                sommetU.sortants.append(sommetV)
+                sommetV.entrants.append(sommetU)
+                # v est accessible depuis u et par conséquent tous les sommets qui précèdent u
+                # on met a jour les sommets accessibles
+                sommetU.accessibleUpdate(sommetV)
+            return True
+
+    def messageErreurPrecedence(t1, t2):
+        raise Exception(
+            "Impossible d'établir une relation de précédence entre %s et %s. Veuillez vérifier vos préférences de précédence." % (t1.name, t2.name))
+
+    def makeGraph(self):
+        self.initGraph()
+        interferences = self.getInterferences()
+        aTraiter = []
+        # e de la forme (t1,t2) (interference tache t1 et tache t2)
         for e in interferences:
             # on verifie les preferences de precedence
+            t1 = e[0]
+            t2 = e[1]
             # si t1 precede t2
-            t1 = e[1]
-            t2 = e[2]
             if (t1.name in self.dic[t2.name]):
                 # si t2 precede t1 aussi alors erreur
                 if(t2.name in self.dic[t1.name]):
-                    raise Exception(
-                        "Impossible d'établir une relation de précédence entre %s et %s . \n Veuillez vérifier vos préférences de précédence")
-                else:  # on verifie si la tache qui doit etre precedée est dejà dans le dictionnaire precedences
-                    p = precedences.get(t1)
-                    # si non alors on ajoute une entree qui a comme cle la tache precedée et comme valeur [tachequiprécède]
-                    if p == None:
-                        precedences[t1] = [t2]
-                    else:  # si oui alors on ajoute la tache qui precède à la valeur de la tache precedée
-                        p.append(t2)
-
-            # si t2 precede t1
-
-            # on verifie si la tache qui doit etre precedée est dejà dans le dictionnaire precedences
-
-            # si non alors on ajoute une entree qui a comme cle la tache precedée et comme valeur [tachequiprécède]
-
-            # si oui alors on ajoute la tache qui precède à la valeur de la tache precedée
-            pass
+                    TaskSystem.messageErreurPrecedence(t1, t2)
+                else:  # t2 ne precede pas t1 dans les préférences
+                    if not self.ajout(t1, t2):
+                        TaskSystem.messageErreurPrecedence(t1, t2)
+            elif (t2.name in self.dic[t1.name]):  # si t2 precede t1
+                if not self.ajout(t2, t1):
+                    TaskSystem.messageErreurPrecedence(t1, t2)
+            else:  # aucune preference à été communiquée explicitement
+                # on garde les taches à part
+                aTraiter.append(e)
+        for a in aTraiter:
+            t1 = e[0]
+            t2 = e[1]
+            if not self.ajout(t1, t2):  # si on ne peut pas ajouter (t1,t2)
+                # peut on ajouter (t2,t1)?
+                # si non alors on ne dispose pas de preferences suffisantes pour creer le systeme
+                if not self.ajout(t2, t1):
+                    TaskSystem.messageErreurPrecedence(t1, t2)
 
     def getInterferences(self):
         """retourne les interferences entre les taches
@@ -118,8 +206,9 @@ class TaskSystem:
         """retourne vrai si l1 et l2 sont disjoints, faux sinon
         """
         # si un element est dans l1 et l2 alors l1 et l2 ne sont pas disjoints
-        for e in (l1 & l2):
-            return False
+        for e1 in l1:
+            if e1 in l2:
+                return False
         return True
 
     def isInterferent(task1, task2):
@@ -129,22 +218,54 @@ class TaskSystem:
         2 taches sont non interferentes si E1&E2=EnsVide et E1&L2=EnsVide et L1&E2=EnsVide
         """
         # e1 et e2 sont disjoints si leur intersection est vide (E1&E2=EnsVide => E1 et E2 disjoints)
-        return (TaskSystem.estDisjoint(task1.reads, task2.writes)
-                and TaskSystem.estDisjoint(task1.writes, task2.reads)
-                and TaskSystem.estDisjoint(task1.writes, task2.writes)
-                )
-        # reads et writes comme liste dans l'ennonce => passage vers set? apres verification des entrées fournies
+        return not(TaskSystem.estDisjoint(task1.reads, task2.writes)
+                   and TaskSystem.estDisjoint(task1.writes, task2.reads)
+                   and TaskSystem.estDisjoint(task1.writes, task2.writes)
+                   )
 
     # TODO : BONUS2 affichage du système de parallélisme maximal
     # utilisation graphviz https://pypi.org/project/graphviz/
+
+    def draw(self):
+        pass
     """
     Rajoutez à votre librairie une fonction qui permettrait d’afficher graphiquement le
     graphe de précédence du système de parallélisme maximal construit.
     """
 
 
-dic = {'t': ['1', '2']}
-p = dic.get('t')
-print(p)
-p.append('3')
-print(p)
+X = None
+Y = None
+Z = None
+
+
+def runT1():
+    global X
+    X = 1
+
+
+def runT2():
+    global Y
+    X = 2
+
+
+def runTsomme():
+    global X, Y, Z
+    Z = X+Y
+
+
+t1 = Task("T1", [], ["X"], runT1)
+t2 = Task("T2", [], ["Y"], runT2)
+tsomme = Task("Tsomme", ["Y", "X"], ["Z"], runTsomme)
+tasksystem = TaskSystem([t1, t2, tsomme], {"T1": [], "T2": [
+                        "T1"], "Tsomme": ["T1", "T2"]})
+print(tasksystem.getDependencies("Tsomme"))
+
+dot = Digraph(comment='The Round Table')
+dot.node('A', 'King Arthur')
+dot.node('B', 'Sir Bedevere the Wise')
+dot.node('L', 'Sir Lancelot the Brave')
+dot.edges(['AB', 'AL'])
+dot.edge('B', 'L', constraint='false')
+print(dot.source)
+dot.render('test-output/round-table.gv', view=True)
