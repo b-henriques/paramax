@@ -1,6 +1,5 @@
 from graphviz import Digraph
-
-
+from threading import Event
 
 """
 — construction du système de parallélisme maximal : 7 points,
@@ -51,9 +50,7 @@ class TaskSystem:
         self.tasks = tasks
         self.dic = dic
         self.makeGraph()
-        
 
-    # TODO : TaskSystem.getDependencies
     def getDependencies(self, taskName):
         """renvoie la liste des noms des tâches qui doivent s’exécuter avant taskName
         """
@@ -76,7 +73,12 @@ class TaskSystem:
         """exécute les tâches du système en parallélisant celles qui peuvent être
         parallélisées
         """
-        pass
+        for s in self.graph.values():
+            if len(s.sortants): # cette tache precede d'autres taches
+                s.event = Event() # on lui attribue un event
+                print(s.sortants)
+                for s_fils in s.sortants:
+                    s_fils.events.append(s.event)
 
     """
      si deux tâches sont interférentes, il n’est pas possible
@@ -101,9 +103,10 @@ class TaskSystem:
             self.entrants = []
             self.sortants = []
             self.sommets_accessibles = []
+            self.events = []
 
         def accessibleUpdate(self, sommet):
-            """actualise sommet_accessibles lors d'un ajout d'une arete au graph 
+            """actualise sommet_accessibles des sommets entrants lors d'un ajout d'une arete au graph 
             """
             self.sommets_accessibles.append(sommet)
             if not self.entrants:
@@ -147,6 +150,7 @@ class TaskSystem:
                 sommetV.entrants.append(sommetU)
                 # v est accessible depuis u et par conséquent tous les sommets qui précèdent u
                 # on met a jour les sommets accessibles
+                sommetU.sommets_accessibles.extend(sommetV.sommets_accessibles)
                 sommetU.accessibleUpdate(sommetV)
             return True
 
@@ -223,17 +227,28 @@ class TaskSystem:
                    and TaskSystem.estDisjoint(task1.writes, task2.writes)
                    )
 
-    # TODO : BONUS2 affichage du système de parallélisme maximal
+    # BONUS2 affichage du système de parallélisme maximal
     # utilisation graphviz https://pypi.org/project/graphviz/
 
     def draw(self):
-        pass
+        """permet d'afficher graphiquement le graphe de précédence du système de parallélisme maximal construit
+        le fichier .pdf est placé dans le directoire Graphs
+        """
+        systeme = Digraph()
+        # pour ajoute chaque sommet du systeme au graphe et on ajoute aussi chaque arete (sortant de ce sommet)
+        for sommet in self.graph.values():
+            systeme.node(sommet.task.name, label=sommet.task.name)
+            for s in sommet.sortants:
+                systeme.edge(sommet.task.name, s.task.name)
+        systeme.render('Graphs/GrapheTaskSystem', view=True)
+
     """
     Rajoutez à votre librairie une fonction qui permettrait d’afficher graphiquement le
     graphe de précédence du système de parallélisme maximal construit.
     """
 
 
+"""
 X = None
 Y = None
 Z = None
@@ -260,12 +275,28 @@ tsomme = Task("Tsomme", ["Y", "X"], ["Z"], runTsomme)
 tasksystem = TaskSystem([t1, t2, tsomme], {"T1": [], "T2": [
                         "T1"], "Tsomme": ["T1", "T2"]})
 print(tasksystem.getDependencies("Tsomme"))
+tasksystem.draw()
+"""
 
-dot = Digraph(comment='The Round Table')
-dot.node('A', 'King Arthur')
-dot.node('B', 'Sir Bedevere the Wise')
-dot.node('L', 'Sir Lancelot the Brave')
-dot.edges(['AB', 'AL'])
-dot.edge('B', 'L', constraint='false')
-print(dot.source)
-dot.render('test-output/round-table.gv', view=True)
+t1 = Task("T1", [], ["X1", "X2"], None)
+t2 = Task("T2", [], ["Y1", "Y2"], None)
+t3 = Task("T3", ["X2", "Y2"], [], None)
+t4 = Task("T4", ["X1", "Y2"], [], None)
+t5 = Task("T5", ["Y1", "Y2"], [], None)
+t6 = Task("T6", [], [], None)
+tasksystem = TaskSystem([t1, t2, t3, t4, t5, t6],
+                        {"T1": [], "T2": [], "T3": ["T1", "T2"], "T4": ["T1", "T2"], "T5": [], "T6": []})
+#print(tasksystem.getInterferences())
+#print(tasksystem.getDependencies("T4"))
+tasksystem.draw()
+tasksystem.run()
+"""
+t1 = Task("T1", [], ["X", "Y"], None)
+t2 = Task("T2", ["X"], ["Z"], None)
+t3 = Task("T3", ["X", "Z"], [], None)
+tasksystem = TaskSystem([t1, t2, t3],
+                        {"T1": ["T3"], "T2": ["T1"], "T3": ["T2"]})
+print(tasksystem.getInterferences())
+print(tasksystem.getDependencies("T3"))
+tasksystem.draw()
+"""
