@@ -3,14 +3,7 @@ from threading import Event, Thread
 from time import sleep
 from random import randint
 
-"""
-— construction du système de parallélisme maximal : 7 points,
-— exécution du système de parallélisme maximal : 7 points,
-— bonus 1 : 3 points,
-— bonus 2 : 3 points.
-"""
-
-
+#==========================================================================================
 class Task:
     """ Classe Tâche
     ---------------
@@ -27,7 +20,7 @@ class Task:
         self.reads = reads
         self.writes = writes
         self.run = run
-
+#===========================================================================================
 
 class TaskSystem:
     """Classe Système de tâches
@@ -263,13 +256,6 @@ class TaskSystem:
             for s in sommet.sortants:
                 systeme.edge(sommet.task.name, s.task.name)
         systeme.render('Graphs/GrapheTaskSystem', view=True)
-
-    """
-    Rajoutez à votre librairie une fonction qui permettrait d’afficher graphiquement le
-    graphe de précédence du système de parallélisme maximal construit.
-    """
-
-
 
 X = None
 Y = None
