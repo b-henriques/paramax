@@ -1,0 +1,7 @@
+digraph {
+	T1 [label=T1]
+	T1 -> Tsomme
+	T2 [label=T2]
+	T2 -> Tsomme
+	Tsomme [label=Tsomme]
+}
