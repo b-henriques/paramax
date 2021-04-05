@@ -34,13 +34,6 @@ class TaskSystem:
             par lesquelles elle doit être précédée si un ordonnancement s’impose
     """
 
-    # TODO: BONUS1 verification des entrées fournies à la procédure de construction du système de tâches
-    """ 1. les noms des tâches peuvent être dupliqués,
-        2. le dictionnaire des préférences de précédence peut contenir des noms de tâches inexistantes,
-            peut ne pas être suffisamment complet pour le problème de minimisation donné, etc.
-        3.Réalisez un ensemble de vérificationsde validité des entrées,
-            en affichant des messages d’erreur détaillés."""
-
     def __init__(self, tasks, dic):
         self.tasks = tasks
         self.dic = dic
@@ -61,6 +54,13 @@ class TaskSystem:
         # on transorme le set en liste
         prec = list(ensemble)
         return prec
+
+          # TODO: BONUS1 verification des entrées fournies à la procédure de construction du système de tâches
+    """ 1. les noms des tâches peuvent être dupliqués,
+        2. le dictionnaire des préférences de précédence peut contenir des noms de tâches inexistantes,
+            peut ne pas être suffisamment complet pour le problème de minimisation donné, etc.
+        3.Réalisez un ensemble de vérificationsde validité des entrées,
+            en affichant des messages d’erreur détaillés."""
 
     # TODO : TaskSystem.run + tests
 
@@ -257,6 +257,8 @@ class TaskSystem:
                 systeme.edge(sommet.task.name, s.task.name)
         systeme.render('Graphs/GrapheTaskSystem', view=True)
 
+
+##########################################################
 X = None
 Y = None
 Z = None
@@ -286,6 +288,7 @@ t2 = Task("T2", [], ["Y"], runT2)
 tsomme = Task("Tsomme", ["Y", "X"], ["Z"], runTsomme)
 tasksystem = TaskSystem([t1, t2, tsomme], {"T1": [], "T2": [
                         "T1"], "Tsomme": ["T1", "T2"]})
+#print(tasksystem.getDependencies("Tsomme"))
 tasksystem.draw()
 tasksystem.run()
 
@@ -301,7 +304,11 @@ tasksystem = TaskSystem([t1, t2, t3, t4, t5, t6],
 #print(tasksystem.getInterferences())
 #print(tasksystem.getDependencies("T4"))
 tasksystem.draw()
-tasksystem.run()
+#tasksystem.run()
+"""
+
+
+"""
 t1 = Task("T1", [], ["X", "Y"], None)
 t2 = Task("T2", ["X"], ["Z"], None)
 t3 = Task("T3", ["X", "Z"], [], None)
