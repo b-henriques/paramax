@@ -3,7 +3,8 @@ from threading import Event, Thread
 from time import sleep
 from random import randint
 
-#==========================================================================================
+# ==========================================================================================
+
 class Task:
     """ Classe Tâche
     ---------------
@@ -20,7 +21,8 @@ class Task:
         self.reads = reads
         self.writes = writes
         self.run = run
-#===========================================================================================
+# ===========================================================================================
+
 
 class TaskSystem:
     """Classe Système de tâches
@@ -32,11 +34,13 @@ class TaskSystem:
             Le dictionnaire des préférences de précédence contiendra,
             pour chaque nom de tâche, les noms des tâches
             par lesquelles elle doit être précédée si un ordonnancement s’impose
+        graph : graphe de precedence
     """
 
     def __init__(self, tasks, dic):
         self.tasks = tasks
         self.dic = dic
+        self.validateInput()
         self.makeGraph()
 
     def getDependencies(self, taskName):
@@ -45,22 +49,63 @@ class TaskSystem:
         # s = sommet dont la tache est taskName
         s = self.graph[taskName]
         # on cherche tous les sommets qui le precedent
-        prec = []
+        # on elimine les doublons en utilisant un set
+        prec = set()
         prec = s.getDependenciesRec(prec)
-        # on elimine les doublons
-        ensemble = set()
-        for p in prec:
-            ensemble.add(p.task.name)
-        # on transorme le set en liste
-        prec = list(ensemble)
-        return prec
+        # on renvoi le nom des tache
+        res = []
+        for s in prec:
+            res.append(s.task.name)
+        return res
 
-          # TODO: BONUS1 verification des entrées fournies à la procédure de construction du système de tâches
+        # TODO: BONUS1 verification des entrées fournies à la procédure de construction du système de tâches
     """ 1. les noms des tâches peuvent être dupliqués,
         2. le dictionnaire des préférences de précédence peut contenir des noms de tâches inexistantes,
             peut ne pas être suffisamment complet pour le problème de minimisation donné, etc.
         3.Réalisez un ensemble de vérificationsde validité des entrées,
             en affichant des messages d’erreur détaillés."""
+
+    def messageErreurInput(noms_dupliques, noms_inexistants):
+            raise Exception( "Noms de tache dupliqués : {} \n Noms de taches non existantes : {}".format(noms_dupliques, noms_inexistants))
+
+    def testDuplique(self, tache):
+        """retourne vrai si tache a un nom duplique, faux sinon 
+        """
+        taches = self.tasks.copy()
+        taches.remove(tache)
+        for t in taches:
+            if tache.name == t.name: return True
+        return False
+
+    def testInexistant(self):
+        """retourne les noms de taches inexistantes
+        """
+        noms = set()
+        # on recupere tous le noms des taches dans le systeme
+        for t in self.tasks:
+            noms.add(t.name)
+        noms_In_Dic = set()
+        #on recupere tous les noms de taches dans le dictionnaire de preference
+        for k,v in self.dic.items():
+            noms_In_Dic.add(k)
+            noms_In_Dic.update(v)
+        noms_inexistants = set()
+        # pour chaque nom dans le dic on verifie s'il correspond a une tache donc s'il est dans noms
+        for n in noms_In_Dic:
+            if n not in noms:
+                noms_inexistants.add(n)
+        return noms_inexistants
+
+
+
+    def validateInput(self):
+        # noms dupliques
+        noms_dupliques = set()
+        for t in self.tasks:
+            if self.testDuplique(t): noms_dupliques.add(t.name)
+        #noms de taches inexistantes
+        noms_inexistants = self.testInexistant()
+        if noms_dupliques and noms_inexistants : TaskSystem.messageErreurInput(noms_dupliques, noms_inexistants)
 
     # TODO : TaskSystem.run + tests
 
@@ -68,10 +113,10 @@ class TaskSystem:
         # ecoute tous les events des taches qui le precedent directement
         for e in sommet.events:
             e.wait()
-        #sleep(randint(1,10))
+        # sleep(randint(1,10))
         # toutes les taches qui le precedent ont termine, il peut s'executer
         sommet.task.run()
-        #print(sommet.task.name)
+        # print(sommet.task.name)
         # declenhe son event s'il y en a, càd s'il precede d'autres taches
         if sommet.event:
             sommet.event.set()
@@ -81,9 +126,9 @@ class TaskSystem:
         parallélisées
         """
         for s in self.graph.values():
-            if len(s.sortants): # cette tache precede d'autres taches
-                s.event = Event() # on lui attribue un event
-                for s_fils in s.sortants: # toutes les taches qui sont directement precedees par cette tache, ecouteront cet event
+            if len(s.sortants):  # cette tache precede d'autres taches
+                s.event = Event()  # on lui attribue un event
+                for s_fils in s.sortants:  # toutes les taches qui sont directement precedees par cette tache, ecouteront cet event
                     s_fils.events.append(s.event)
         # on lance toutes les taches en parallele, les precedences sont verifies par les events
         for s in self.graph.values():
@@ -102,29 +147,42 @@ class TaskSystem:
             events : les evnts qu'il faut attendre pour commencer la tache
         """
 
-        # TODO: changer sommets_accessibles par une recherche en profondeur
         def __init__(self, task):
             self.task = task
             self.entrants = []
             self.sortants = []
-            self.sommets_accessibles = []
             self.event = None
             self.events = []
 
-        def accessibleUpdate(self, sommet):
-            """actualise sommet_accessibles des sommets entrants lors d'un ajout d'une arete au graph 
+        def aChemin(self, sommet):
+            """ retourne vrai s'il existe un chemin de self à sommet, faux sinon
             """
-            self.sommets_accessibles.append(sommet)
-            if not self.entrants:
-                for s in self.entrants:
-                    s.accessibleUpdate(sommet)
+            explore = []
+            return self.DFS_chemin(sommet, explore)
+
+        def DFS_chemin(self, sommet, explore):
+            """ retourne vrai s'il existe un chemin de self à sommet
+            """
+            # si sommet == sommet recherche alors retourner true
+            if self == sommet:
+                return True
+            # sinon  marquer comme exploré
+            else:
+                explore.append(self)
+            # pour chaque sommet adjacent:
+            rep = False
+            for v in self.sortants:
+                # si non explore alors dfs_chemin
+                if v not in explore:
+                    rep = rep or v.DFS_chemin(sommet, explore)
+            return rep
 
         def getDependenciesRec(self, prec):
-            """renvoi tous les sommets qui precedent sommet
+            """renvoi tous les sommets qui precedent ce sommet
             """
-            prec.extend(self.entrants)
+            prec.update(self.entrants)
             for s in self.entrants:
-                prec.extend(s.getDependenciesRec(prec))
+                prec.update(s.getDependenciesRec(prec))
             return prec
 
     # =============================================================================================================
@@ -145,32 +203,33 @@ class TaskSystem:
         sommetV = self.graph[t2.name]
         # chemin de v à u ?
         # oui => ajout de (u,v) cree un cycle donc erreur
-        if sommetU in sommetV.sommets_accessibles:
+        if sommetV.aChemin(sommetU):
             return False
         else:  # non => chemin u à v?
             # si chemin alors on a déjà la précédence par transitivité
             # sinon:
-            if sommetV not in sommetU.sommets_accessibles:
+            if not sommetU.aChemin(sommetV):
                 # ajout u -> v
                 sommetU.sortants.append(sommetV)
                 sommetV.entrants.append(sommetU)
-                # v est accessible depuis u et par conséquent tous les sommets qui précèdent u
-                # on met a jour les sommets accessibles
-                sommetU.sommets_accessibles.extend(sommetV.sommets_accessibles)
-                sommetU.accessibleUpdate(sommetV)
             return True
 
-    # TODO : ajouter param type qui donne le type de erreur, cyle explicite, cycle implicite, pas de preference communiquee(pas de transitivite)
-    def messageErreurPrecedence(t1, t2):
-        raise Exception(
-            "Impossible d'établir une relation de précédence entre %s et %s. Veuillez vérifier vos préférences de précédence." % (t1.name, t2.name))
+    def messageErreurPrecedence(t1, t2, type):
+        """arrete le programme et affiche l'erreur dans la console
+        """
+        if type == "explicite":
+            raise Exception(
+                "Impossible d'établir une relation de précédence entre {} et {}.".format(t1.name, t2.name) +
+                " Veuillez vérifier vos préférences de précédence.\n" +
+                " Un cycle explicite a été detecté dans le dictionnaire de préférences que vous avez rentré ie. {}:[{}] et {}:[{}] ".format(t1.name, t2.name, t2.name, t1.name))
+        if type == "implicite":
+            raise Exception(
+                "Impossible d'établir une relation de précédence entre {} et {}.".format(t1.name, t2.name) +
+                "Veuillez vérifier vos préférences de précédence. Un cycle implicite a été detecté dans le dictionnaire de préférences que vous avez rentré.")
+        if type == "noInfo":
+            raise Exception(
+                "Impossible d'établir une relation de précédence entre %s et %s. Veuillez vérifier vos préférences de précédence. Nous ne disposons pas d'informations suffisantes pour construire le graph de précédence" % (t1.name, t2.name))
 
-
-    """
-    si deux tâches sont interférentes, il n’est pas possible
-    de savoir en utilisant ces conditions dans quel ordre ces tâches doivent être exécutées : en
-    effet, l’ordre dépendra des préférences de l’utilisateur ou de l’utilisatrice.
-    """
     def makeGraph(self):
         """construit le graph de precedence du systeme de parallelisme maximal
         """
@@ -186,24 +245,28 @@ class TaskSystem:
             if (t1.name in self.dic[t2.name]):
                 # si t2 precede t1 aussi alors erreur
                 if(t2.name in self.dic[t1.name]):
-                    TaskSystem.messageErreurPrecedence(t1, t2)
+                    TaskSystem.messageErreurPrecedence(t1, t2, "explicite")
                 else:  # t2 ne precede pas t1 dans les préférences
                     if not self.ajout(t1, t2):
-                        TaskSystem.messageErreurPrecedence(t1, t2)
+                        TaskSystem.messageErreurPrecedence(t1, t2, "implicite")
             elif (t2.name in self.dic[t1.name]):  # si t2 precede t1
                 if not self.ajout(t2, t1):
-                    TaskSystem.messageErreurPrecedence(t1, t2)
+                    TaskSystem.messageErreurPrecedence(t2, t1, "implicite")
             else:  # aucune preference à été communiquée explicitement
                 # on garde les taches à part
                 aTraiter.append(e)
-        for a in aTraiter:
+        for a in aTraiter:  # a de la forme (tache1,tache2)
             t1 = a[0]
             t2 = a[1]
-            if not self.ajout(t1, t2):  # si on ne peut pas ajouter (t1,t2)
-                # peut on ajouter (t2,t1)?
-                # si non alors on ne dispose pas de preferences suffisantes pour creer le systeme
-                if not self.ajout(t2, t1):
-                    TaskSystem.messageErreurPrecedence(t1, t2)
+            # on recupere les sommets associes à ces taches
+            sommetU = self.graph[t1.name]
+            sommetV = self.graph[t2.name]
+            # a t'on (t1,t2) ou (t2,t1) par transitivité?
+            # si oui alors les interferences ont déjà été traitées
+            # sinon, on ne dispose pas d'informations suffisantes pour construire le graph de précédence,
+            # (l'utilisateur prefere-t-il t1 avant t2 ou t2 avant t1?)
+            if not (sommetU.aChemin(sommetV) or sommetV.aChemin(sommetU)):
+                TaskSystem.messageErreurPrecedence(t1, t2, "noInfo")
 
     def getInterferences(self):
         """retourne les interferences entre les taches
@@ -259,6 +322,7 @@ class TaskSystem:
 
 
 ##########################################################
+"""
 X = None
 Y = None
 Z = None
@@ -288,24 +352,23 @@ t2 = Task("T2", [], ["Y"], runT2)
 tsomme = Task("Tsomme", ["Y", "X"], ["Z"], runTsomme)
 tasksystem = TaskSystem([t1, t2, tsomme], {"T1": [], "T2": [
                         "T1"], "Tsomme": ["T1", "T2"]})
-#print(tasksystem.getDependencies("Tsomme"))
-tasksystem.draw()
+print(tasksystem.getDependencies("Tsomme"))
+# tasksystem.draw()
 tasksystem.run()
-
 """
+
 t1 = Task("T1", [], ["X1", "X2"], None)
 t2 = Task("T2", [], ["Y1", "Y2"], None)
 t3 = Task("T3", ["X2", "Y2"], [], None)
 t4 = Task("T4", ["X1", "Y2"], [], None)
-t5 = Task("T5", ["Y1", "Y2"], [], None)
+t5 = Task("T4", [], ["X2", "X1"], None)
 t6 = Task("T6", [], [], None)
 tasksystem = TaskSystem([t1, t2, t3, t4, t5, t6],
-                        {"T1": [], "T2": [], "T3": ["T1", "T2"], "T4": ["T1", "T2"], "T5": [], "T6": []})
-#print(tasksystem.getInterferences())
-#print(tasksystem.getDependencies("T4"))
+                        {"T1": [], "T2": [], "T3": ["T1", "T2"], "T4": ["T1", "T2"], "T5": ["T3", "T4"], "T6": ["T7"]})
+# print(tasksystem.getInterferences())
+print(tasksystem.getDependencies("T5"))
 tasksystem.draw()
-#tasksystem.run()
-"""
+# tasksystem.run()
 
 
 """
@@ -317,4 +380,5 @@ tasksystem = TaskSystem([t1, t2, t3],
 print(tasksystem.getInterferences())
 print(tasksystem.getDependencies("T3"))
 tasksystem.draw()
+
 """
