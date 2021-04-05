@@ -71,7 +71,7 @@ class TaskSystem:
                 for s_fils in s.sortants:  # toutes les taches qui sont directement precedees par cette tache, ecouteront cet event
                     s_fils.events.append(s.event)
         # on lance toutes les taches en parallele, les precedences sont verifies par les events
-        for s in reversed(self.graph.values()):
+        for s in self.graph.values():
             s.start()
 
     # ==============================================================================================================
