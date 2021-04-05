@@ -1,9 +1,9 @@
 from graphviz import Digraph
 from threading import Event, Thread
-from time import sleep
-from random import randint
 
-# ==========================================================================================
+# ===========================================================================================
+# ===========================================================================================
+
 
 class Task:
     """ Classe Tâche
@@ -21,6 +21,7 @@ class Task:
         self.reads = reads
         self.writes = writes
         self.run = run
+# ===========================================================================================
 # ===========================================================================================
 
 
@@ -40,13 +41,15 @@ class TaskSystem:
     def __init__(self, tasks, dic):
         self.tasks = tasks
         self.dic = dic
+        # validation des entrees
         self.validateInput()
+        # construction du graphe de precedence
         self.makeGraph()
 
     def getDependencies(self, taskName):
         """renvoie la liste des noms des tâches qui doivent s’exécuter avant taskName
         """
-        # s = sommet dont la tache est taskName
+        # s = sommet dont la tache a le nom taskName
         s = self.graph[taskName]
         # on cherche tous les sommets qui le precedent
         # on elimine les doublons en utilisant un set
@@ -58,69 +61,6 @@ class TaskSystem:
             res.append(s.task.name)
         return res
 
-        # TODO: BONUS1 verification des entrées fournies à la procédure de construction du système de tâches
-    """ 1. les noms des tâches peuvent être dupliqués,
-        2. le dictionnaire des préférences de précédence peut contenir des noms de tâches inexistantes,
-            peut ne pas être suffisamment complet pour le problème de minimisation donné, etc.
-        3.Réalisez un ensemble de vérificationsde validité des entrées,
-            en affichant des messages d’erreur détaillés."""
-
-    def messageErreurInput(noms_dupliques, noms_inexistants):
-            raise Exception( "Noms de tache dupliqués : {} \n Noms de taches non existantes : {}".format(noms_dupliques, noms_inexistants))
-
-    def testDuplique(self, tache):
-        """retourne vrai si tache a un nom duplique, faux sinon 
-        """
-        taches = self.tasks.copy()
-        taches.remove(tache)
-        for t in taches:
-            if tache.name == t.name: return True
-        return False
-
-    def testInexistant(self):
-        """retourne les noms de taches inexistantes
-        """
-        noms = set()
-        # on recupere tous le noms des taches dans le systeme
-        for t in self.tasks:
-            noms.add(t.name)
-        noms_In_Dic = set()
-        #on recupere tous les noms de taches dans le dictionnaire de preference
-        for k,v in self.dic.items():
-            noms_In_Dic.add(k)
-            noms_In_Dic.update(v)
-        noms_inexistants = set()
-        # pour chaque nom dans le dic on verifie s'il correspond a une tache donc s'il est dans noms
-        for n in noms_In_Dic:
-            if n not in noms:
-                noms_inexistants.add(n)
-        return noms_inexistants
-
-
-
-    def validateInput(self):
-        # noms dupliques
-        noms_dupliques = set()
-        for t in self.tasks:
-            if self.testDuplique(t): noms_dupliques.add(t.name)
-        #noms de taches inexistantes
-        noms_inexistants = self.testInexistant()
-        if noms_dupliques and noms_inexistants : TaskSystem.messageErreurInput(noms_dupliques, noms_inexistants)
-
-    # TODO : TaskSystem.run + tests
-
-    def taskRun(sommet):
-        # ecoute tous les events des taches qui le precedent directement
-        for e in sommet.events:
-            e.wait()
-        # sleep(randint(1,10))
-        # toutes les taches qui le precedent ont termine, il peut s'executer
-        sommet.task.run()
-        # print(sommet.task.name)
-        # declenhe son event s'il y en a, càd s'il precede d'autres taches
-        if sommet.event:
-            sommet.event.set()
-
     def run(self):
         """exécute les tâches du système en parallélisant celles qui peuvent être
         parallélisées
@@ -131,11 +71,67 @@ class TaskSystem:
                 for s_fils in s.sortants:  # toutes les taches qui sont directement precedees par cette tache, ecouteront cet event
                     s_fils.events.append(s.event)
         # on lance toutes les taches en parallele, les precedences sont verifies par les events
-        for s in self.graph.values():
-            Thread(target=TaskSystem.taskRun, args=[s]).start()
+        for s in reversed(self.graph.values()):
+            s.start()
 
-    # ==========================================================================================================
-    class Sommet:
+    # ==============================================================================================================
+    # BONUS1 verification des entrées fournies à la procédure de construction du système de tâches
+        # la verification des entree se fait en 2 parties:
+        # 1. verificationInput() qui verifie s'il existe des noms dupliques ou des noms de taches inexistantes
+        # 2. lors de la construction du graphe de precedence si les preferences entrainent des cycles ou ne sont pas
+        # suffisantes pour la construction du graphe
+    def messageErreurInput(noms_dupliques, noms_inexistants):
+        """arrete le programme et affiche l'erreur sur la console
+        """
+        raise Exception("Noms de tache dupliqués : {} \n Noms de taches non existantes : {}".format(
+            noms_dupliques, noms_inexistants))
+
+    def testDuplique(self, tache):
+        """retourne vrai si tache a un nom duplique, faux sinon 
+        """
+        taches = self.tasks.copy()
+        taches.remove(tache)
+        for t in taches:
+            if tache.name == t.name:
+                return True
+        return False
+
+    def testInexistant(self):
+        """retourne les noms de taches inexistantes
+        """
+        noms = set()
+        # on recupere tous le noms des taches dans le systeme
+        for t in self.tasks:
+            noms.add(t.name)
+        noms_In_Dic = set()
+        # on recupere tous les noms de taches dans le dictionnaire de preference
+        for k, v in self.dic.items():
+            noms_In_Dic.add(k)
+            noms_In_Dic.update(v)
+        noms_inexistants = set()
+        # pour chaque nom dans le dic on verifie s'il correspond a une tache donc s'il est dans noms
+        for n in noms_In_Dic:
+            if n not in noms:
+                noms_inexistants.add(n)
+        return noms_inexistants
+
+    def validateInput(self):
+        """verifie les entrees
+        """
+        # noms dupliques
+        noms_dupliques = set()
+        for t in self.tasks:
+            if self.testDuplique(t):
+                noms_dupliques.add(t.name)
+        # noms de taches inexistantes
+        noms_inexistants = self.testInexistant()
+        # s'il existe des nom_dupliques ou noms de taches inexistants
+        if noms_dupliques or noms_inexistants:
+            TaskSystem.messageErreurInput(noms_dupliques, noms_inexistants)
+
+    # ===========================================================================================
+    # ===========================================================================================
+    class Sommet(Thread):
         """classe Sommet
         ---------------
         ---Attributs---
@@ -143,16 +139,26 @@ class TaskSystem:
             task_name : nom de la tache qu'il represente
             entrants : soit ce sommet u, entrants = t tq (t,u) existe càd sommets qui on une fleche vers ce sommet
             sortants : voisinage de ce sommet, sortants = v tq (u,v) existe
-            sommets_accessibles : les sommets accessibles depuis ce sommet
             events : les evnts qu'il faut attendre pour commencer la tache
         """
 
         def __init__(self, task):
+            Thread.__init__(self)
             self.task = task
             self.entrants = []
             self.sortants = []
             self.event = None
             self.events = []
+
+        def run(self):
+            # ecoute tous les events des taches qui le precedent directement
+            for e in self.events:
+                e.wait()
+            # toutes les taches qui le precedent ont termine, il peut s'executer
+            self.task.run()
+            # declenhe son event s'il y en a, càd s'il precede d'autres taches
+            if self.event:
+                self.event.set()
 
         def aChemin(self, sommet):
             """ retourne vrai s'il existe un chemin de self à sommet, faux sinon
@@ -161,12 +167,12 @@ class TaskSystem:
             return self.DFS_chemin(sommet, explore)
 
         def DFS_chemin(self, sommet, explore):
-            """ retourne vrai s'il existe un chemin de self à sommet
+            """ retourne vrai s'il existe un chemin de self à sommet, faux sinon
             """
             # si sommet == sommet recherche alors retourner true
             if self == sommet:
                 return True
-            # sinon  marquer comme exploré
+            # sinon  marquer self comme exploré
             else:
                 explore.append(self)
             # pour chaque sommet adjacent:
@@ -185,7 +191,8 @@ class TaskSystem:
                 prec.update(s.getDependenciesRec(prec))
             return prec
 
-    # =============================================================================================================
+    # ===========================================================================================
+    # ===========================================================================================
 
     def initGraph(self):
         """initialise le graph
@@ -214,6 +221,7 @@ class TaskSystem:
                 sommetV.entrants.append(sommetU)
             return True
 
+    # BONUS 1 partie 2
     def messageErreurPrecedence(t1, t2, type):
         """arrete le programme et affiche l'erreur dans la console
         """
@@ -267,6 +275,21 @@ class TaskSystem:
             # (l'utilisateur prefere-t-il t1 avant t2 ou t2 avant t1?)
             if not (sommetU.aChemin(sommetV) or sommetV.aChemin(sommetU)):
                 TaskSystem.messageErreurPrecedence(t1, t2, "noInfo")
+        self.trimGraph()
+
+    def trimGraph(self):
+        for u in self.graph.values():
+            # les sommets accessibles directement
+            accesDirect = u.sortants.copy()
+            for v in accesDirect : # soit l'arete u -> v
+                # on enleve le sommet v
+                u.sortants.remove(v)
+                # s'il existe un chemin u à v on peut enlever cette arete
+                # s'il n'existe pas de chemin de u à v on doit garder cette arete
+                if not u.aChemin(v):
+                    u.sortants.append(v)
+
+
 
     def getInterferences(self):
         """retourne les interferences entre les taches
@@ -310,7 +333,7 @@ class TaskSystem:
 
     def draw(self):
         """permet d'afficher graphiquement le graphe de précédence du système de parallélisme maximal construit
-        le fichier .pdf est placé dans le directoire Graphs
+        le fichier .pdf est placé dans le repertoire Graphs
         """
         systeme = Digraph()
         # pour ajoute chaque sommet du systeme au graphe et on ajoute aussi chaque arete (sortant de ce sommet)
@@ -321,8 +344,13 @@ class TaskSystem:
         systeme.render('Graphs/GrapheTaskSystem', view=True)
 
 
-##########################################################
-"""
+########################################################################################################
+###EXEMPLES D'EXECUTION###
+
+
+from time import sleep
+from random import randint
+
 X = None
 Y = None
 Z = None
@@ -330,21 +358,25 @@ Z = None
 
 def runT1():
     global X
-    print("running t1")
+    print("running T1")
+    sleep(randint(1,10))
     X = 1
+    print("finished T1")
 
 
 def runT2():
     global Y
-    print("running t2")
+    print("running T2")
+    sleep(randint(1,10))
     Y = 2
+    print("finished T2")
 
 
 def runTsomme():
     global X, Y, Z
-    print("running tsomme")
+    print("running Tsomme")
     Z = X+Y
-    print(Z)
+    print("finished Tsomme")
 
 
 t1 = Task("T1", [], ["X"], runT1)
@@ -353,32 +385,5 @@ tsomme = Task("Tsomme", ["Y", "X"], ["Z"], runTsomme)
 tasksystem = TaskSystem([t1, t2, tsomme], {"T1": [], "T2": [
                         "T1"], "Tsomme": ["T1", "T2"]})
 print(tasksystem.getDependencies("Tsomme"))
-# tasksystem.draw()
+tasksystem.draw()
 tasksystem.run()
-"""
-
-t1 = Task("T1", [], ["X1", "X2"], None)
-t2 = Task("T2", [], ["Y1", "Y2"], None)
-t3 = Task("T3", ["X2", "Y2"], [], None)
-t4 = Task("T4", ["X1", "Y2"], [], None)
-t5 = Task("T4", [], ["X2", "X1"], None)
-t6 = Task("T6", [], [], None)
-tasksystem = TaskSystem([t1, t2, t3, t4, t5, t6],
-                        {"T1": [], "T2": [], "T3": ["T1", "T2"], "T4": ["T1", "T2"], "T5": ["T3", "T4"], "T6": ["T7"]})
-# print(tasksystem.getInterferences())
-print(tasksystem.getDependencies("T5"))
-tasksystem.draw()
-# tasksystem.run()
-
-
-"""
-t1 = Task("T1", [], ["X", "Y"], None)
-t2 = Task("T2", ["X"], ["Z"], None)
-t3 = Task("T3", ["X", "Z"], [], None)
-tasksystem = TaskSystem([t1, t2, t3],
-                        {"T1": ["T3"], "T2": ["T1"], "T3": ["T2"]})
-print(tasksystem.getInterferences())
-print(tasksystem.getDependencies("T3"))
-tasksystem.draw()
-
-"""
