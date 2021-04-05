@@ -278,6 +278,9 @@ class TaskSystem:
         self.trimGraph()
 
     def trimGraph(self):
+        """ enleve les aretes "en trop"
+        pour une arete (u,v) si on l'enleve et qu'on a toujours un chemin entre u et v alors on n'a pas besoin de cette arete
+        """
         for u in self.graph.values():
             # les sommets accessibles directement
             accesDirect = u.sortants.copy()
