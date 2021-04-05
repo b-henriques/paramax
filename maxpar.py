@@ -346,8 +346,7 @@ class TaskSystem:
 
 ########################################################################################################
 ###EXEMPLES D'EXECUTION###
-
-
+"""
 from time import sleep
 from random import randint
 
@@ -387,3 +386,4 @@ tasksystem = TaskSystem([t1, t2, tsomme], {"T1": [], "T2": [
 print(tasksystem.getDependencies("Tsomme"))
 tasksystem.draw()
 tasksystem.run()
+"""
