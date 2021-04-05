@@ -180,7 +180,7 @@ class TaskSystem:
             for v in self.sortants:
                 # si non explore alors dfs_chemin
                 if v not in explore:
-                    rep = rep or v.DFS_chemin(sommet, explore)
+                    rep = rep or v.DFS_chemin(sommet, explore) # évaluation paresseuse (si rep=vrai on fait pas v.dfs_chemin)
             return rep
 
         def getDependenciesRec(self, prec):
